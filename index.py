@@ -86,7 +86,7 @@ def dashboard():
 @app.route('/post/<string:post_slug>', methods = ["GET"])
 def postFuction(post_slug):
     post = Posts.query.filter_by(slug = post_slug).first()
-    return render_template('post.html', params = params, post = post)
+    return render_template('samplePage.html', params = params, post = post)
 
 
 
@@ -101,7 +101,13 @@ def edit(sno):
             img_file = request.form.get('img_file')
             date = datetime.now()
             if sno == '0':
-                post = Posts(sno = sno, title = box_title, slug = slug, content = content, tagline = tline, img_file = img_file, date = date)
+                post = Posts(title = box_title,
+                    slug = slug,
+                    content = content,
+                    tagline = tline,
+                    img_file = img_file,
+                    date = date 
+                    )
                 db.session.add(post)
                 db.session.commit()
             else:
@@ -113,9 +119,9 @@ def edit(sno):
                 post.img_file = img_file
                 post.date = date
                 db.session.commit()
-                redirect('/edit'+sno) 
+                return redirect('/edit/' + sno) 
     post = Posts.query.filter_by(sno = sno).first()
-    return render_template('edit.html', params = params, post = post)
+    return render_template('edit.html', params = params, post = post, sno=sno)
 
 
 
