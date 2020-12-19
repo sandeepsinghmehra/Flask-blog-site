@@ -1,5 +1,6 @@
 from flask import Flask,render_template,request,session,redirect,url_for
 from flask_sqlalchemy import SQLAlchemy
+from flask_mail import Mail, Message
 import json
 from datetime import datetime
 import os
@@ -10,8 +11,14 @@ with open("templates/config.json", "r") as c:
 local_server = True
 
 app = Flask(__name__)
-app.secret_key = 'My Name is Sandy'
-
+app.secret_key = params['secret_key']
+app.config['MAIL_SERVER']='smtp.gmail.com'
+app.config['MAIL_PORT'] = 465
+app.config['MAIL_USERNAME'] = params['sender_email']
+app.config['MAIL_PASSWORD'] = params['sender_passwd']
+app.config['MAIL_USE_TLS'] = False
+app.config['MAIL_USE_SSL'] = True
+mail = Mail(app)
 if(local_server):
     app.config["SQLALCHEMY_DATABASE_URI"] = params['local_url']
 else:
@@ -22,7 +29,6 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 if not os.path.exists('db.sqlite'):
     db.create_all()
-    print('after db.create_all()')
 
 
 class Contacts(db.Model):
@@ -31,6 +37,12 @@ class Contacts(db.Model):
    email = db.Column(db.String(50))  
    phone_num = db.Column(db.String(15))
    msg = db.Column(db.String(200))
+   date = db.Column(db.DateTime, default=datetime.utcnow)
+
+class Messages(db.Model):
+   sno = db.Column(db.Integer, primary_key = True, autoincrement=True)
+   name = db.Column(db.String(100), unique = False)
+   message = db.Column(db.String(200))
    date = db.Column(db.DateTime, default=datetime.utcnow)
 
 class Posts(db.Model):
@@ -145,12 +157,37 @@ def contactFuction() :
             email = email, 
             phone_num = phone, 
             msg = message
-            )   # Create an instance of the User class
-        db.session.add(new_msg)    # Adds new User record to database
+            )   # Create an instance of the Contacts class
+        db.session.add(new_msg)    # Adds new Contacts record to database
         db.session.commit()   # Commits all changes
     return render_template('contact.html', params=params)
 
+@app.route('/messages')
+def messageFunction() :
+    users = Contacts.query.order_by(Contacts.sno)
+    contacts = Contacts.query.order_by(Contacts.sno.desc())
+    return render_template('messages.html', params = params, contacts = contacts)
 
+@app.route("/msgsent/<string:email>", methods = ['POST', 'GET'])
+def msgSendFunction(email):
+    if request.method == "POST" :
+        #add database
+        name = request.form.get('name')
+        message = request.form.get('message')
+        date = datetime.now()
+        new_msg = Messages(
+            name = name, 
+            message = message,
+            date = date
+            )   
+        db.session.add(new_msg)    
+        db.session.commit()  
+        msg = Message('Hello ' + name, sender = params['sender_email'], recipients = [email])
+        msg.body = message
+        mail.send(msg)
+        return redirect('/messages') 
+    return render_template('messageform.html', params=params, email= email)
+  
 @app.route('/delete/<string:sno>', methods = ["POST", "GET"])
 def deleteFunction(sno):
      if ('user' in session and session['user'] == params['admin_user']):
